@@ -367,49 +367,9 @@ h1 span {
   color: var(--text-primary);
 }
 
+/* Remove unused action buttons styles */
 .actions-container {
-  display: flex;
-  gap: 12px;
-  margin-top: 8px;
-}
-
-.action-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 12px;
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.action-btn:hover {
-  background-color: var(--background);
-}
-
-.copy-btn {
-  color: var(--primary);
-  border-color: var(--primary-light);
-}
-
-.copy-btn:hover {
-  background-color: var(--primary-light);
-}
-
-.save-btn {
-  color: var(--success);
-  border-color: rgba(12, 206, 107, 0.2);
-}
-
-.save-btn:hover {
-  background-color: rgba(12, 206, 107, 0.1);
+  display: none; /* Hide this container entirely */
 }
 
 /* Add animation for success actions */
@@ -417,6 +377,38 @@ h1 span {
   background-color: var(--success) !important;
   color: white !important;
   border-color: var(--success) !important;
+}
+
+/* Save Settings Button */
+.save-settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-top: 8px;
+  background-color: var(--surface);
+  color: var(--primary);
+  border: 1px solid var(--primary-light);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  align-self: flex-end;
+}
+
+.save-settings-btn:hover {
+  background-color: var(--primary-light);
+  transform: translateY(-1px);
+}
+
+.save-settings-btn:active {
+  transform: translateY(1px);
+}
+
+.save-settings-btn .material-icons-round {
+  font-size: 18px;
 }
 
 /* Error Styles */
@@ -495,6 +487,7 @@ h1 span {
 .footer-links {
   display: flex;
   gap: 16px;
+  justify-content: flex-end;
 }
 
 .footer-links a {
@@ -544,10 +537,6 @@ h1 span {
   
   .metrics-container {
     grid-template-columns: 1fr;
-  }
-  
-  .actions-container {
-    flex-direction: column;
   }
 }
 
@@ -613,7 +602,7 @@ h1 span {
 }
 
 .export-btn:nth-child(2):hover {
-  background-color: rgba(255, 152, 0, 0.1);
+  background-color: rgba(255, 152, 0.1);
 }
 
 .export-btn:nth-child(3) {

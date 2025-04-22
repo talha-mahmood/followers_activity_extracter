@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="popup.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
-  <script src="scripts/export-utils.js"></script>
   <script src="../scripts/simple-export.js"></script>
 </head>
 <body>
@@ -55,39 +54,6 @@
           <!-- Profile cards will be added here dynamically -->
         </div>
         
-        <div class="metrics-container">
-          <div class="metric-card followers-card">
-            <div class="metric-icon">
-              <span class="material-icons-round">group</span>
-            </div>
-            <div class="metric-content">
-              <h3>Followers</h3>
-              <p id="followers-count" class="metric-value">-</p>
-            </div>
-          </div>
-          
-          <div class="metric-card activity-card">
-            <div class="metric-icon">
-              <span class="material-icons-round">history</span>
-            </div>
-            <div class="metric-content">
-              <h3>Last Activity</h3>
-              <p id="last-activity" class="metric-value">-</p>
-            </div>
-          </div>
-        </div>
-        
-        <div class="actions-container">
-          <button id="copy-btn" class="action-btn copy-btn">
-            <span class="material-icons-round">content_copy</span>
-            <span>Copy Results</span>
-          </button>
-          <button id="save-btn" class="action-btn save-btn">
-            <span class="material-icons-round">bookmark</span>
-            <span>Save Profiles</span>
-          </button>
-        </div>
-        
         <div class="export-section">
           <h3>Export Data</h3>
           <div class="export-buttons">
@@ -124,7 +90,6 @@
       <p class="footer-text">Enter multiple LinkedIn profile URLs (one per line)</p>
       <div class="footer-links">
         <a href="#" id="help-link"><span class="material-icons-round">help_outline</span></a>
-        <a href="#" id="settings-link"><span class="material-icons-round">settings</span></a>
       </div>
     </div>
   </div>

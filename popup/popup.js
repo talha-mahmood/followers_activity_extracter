@@ -7,12 +7,9 @@ document.addEventListener('DOMContentLoaded', function() {
   const errorSection = document.getElementById('error');
   const followersCount = document.getElementById('followers-count');
   const lastActivity = document.getElementById('last-activity');
-  const copyBtn = document.getElementById('copy-btn');
-  const saveBtn = document.getElementById('save-btn');
   const retryBtn = document.getElementById('retry-btn');
   const errorMessage = document.getElementById('error-message');
   const helpLink = document.getElementById('help-link');
-  const settingsLink = document.getElementById('settings-link');
 
   // Update the export button variables to match the IDs in the HTML
   const exportCsvBtn = document.getElementById('export-csv');
@@ -25,17 +22,65 @@ document.addEventListener('DOMContentLoaded', function() {
   let processingQueue = []; // Queue of URLs to process
   let isProcessing = false; // Flag to prevent multiple batch processes
 
+  // Add save settings button
+  const saveSettingsBtn = document.createElement('button');
+  saveSettingsBtn.id = 'save-settings-btn';
+  saveSettingsBtn.className = 'save-settings-btn';
+  saveSettingsBtn.innerHTML = '<span class="material-icons-round">save</span><span>Save URLs</span>';
+  
+  // Insert save settings button after extract button
+  const urlInputContainer = document.querySelector('.url-input-container');
+  urlInputContainer.appendChild(saveSettingsBtn);
+
   // Set current date in the refresh hint
   const refreshHint = document.querySelector('.refresh-hint');
   refreshHint.textContent = `Updated ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+
+  // Function to save the URLs to storage
+  function saveUrlsToStorage() {
+    const urls = linkedinUrlInput.value.trim();
+    if (urls) {
+      chrome.storage.local.set({ 'savedUrls': urls }, function() {
+        showSaveSuccess();
+      });
+    }
+  }
+  
+  // Function to load saved URLs from storage
+  function loadSavedUrls() {
+    chrome.storage.local.get('savedUrls', function(data) {
+      if (data.savedUrls) {
+        linkedinUrlInput.value = data.savedUrls;
+        clearBtn.style.display = 'flex';
+      }
+    });
+  }
+  
+  // Show success message when URLs are saved
+  function showSaveSuccess() {
+    const originalText = saveSettingsBtn.innerHTML;
+    saveSettingsBtn.innerHTML = '<span class="material-icons-round">check</span><span>Saved!</span>';
+    saveSettingsBtn.classList.add('success-action');
+    
+    setTimeout(() => {
+      saveSettingsBtn.innerHTML = originalText;
+      saveSettingsBtn.classList.remove('success-action');
+    }, 2000);
+  }
+  
+  // Add event listener for save settings button
+  saveSettingsBtn.addEventListener('click', saveUrlsToStorage);
 
   // Check if we're on a LinkedIn profile page
   chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
     const currentUrl = tabs[0].url;
     if (currentUrl.includes('linkedin.com/in/')) {
       linkedinUrlInput.value = currentUrl;
-      // If we're already on a LinkedIn profile, auto-extract data
-      setTimeout(() => extractBtn.click(), 300);
+      clearBtn.style.display = 'flex';
+      // Remove automatic extraction - only fill the URL
+    } else {
+      // Load saved URLs if we're not on a LinkedIn profile page
+      loadSavedUrls();
     }
   });
 
@@ -307,57 +352,6 @@ document.addEventListener('DOMContentLoaded', function() {
     `;
   }
 
-  copyBtn.addEventListener('click', function() {
-    let resultText = `LinkedIn Insight Tracker Results:\n\n`;
-    
-    profilesData.forEach((profile, index) => {
-      resultText += `Profile ${index + 1}: ${profile.profile_name}\n`;
-      resultText += `URL: ${profile.profile_url}\n`;
-      resultText += `Followers: ${profile.followers}\n`;
-      resultText += `Last Activity: ${profile.last_activity}\n`;
-      resultText += `Extracted: ${new Date(profile.extracted_at).toLocaleString()}\n\n`;
-    });
-    
-    navigator.clipboard.writeText(resultText).then(function() {
-      const originalText = copyBtn.innerHTML;
-      copyBtn.innerHTML = '<span class="material-icons-round">check</span><span>Copied!</span>';
-      
-      // Add success animation
-      copyBtn.classList.add('success-action');
-      
-      setTimeout(() => {
-        copyBtn.innerHTML = originalText;
-        copyBtn.classList.remove('success-action');
-      }, 2000);
-    });
-  });
-
-  saveBtn.addEventListener('click', function() {
-    // Animation for save button
-    const originalText = saveBtn.innerHTML;
-    saveBtn.innerHTML = '<span class="material-icons-round">check</span><span>Saved!</span>';
-    
-    // Add success animation
-    saveBtn.classList.add('success-action');
-    
-    // Store the profile data in chrome.storage
-    chrome.storage.local.get('savedProfiles', function(data) {
-      const savedProfiles = data.savedProfiles || [];
-      
-      // Add all current profiles to saved profiles
-      profilesData.forEach(profile => {
-        savedProfiles.push(profile);
-      });
-      
-      chrome.storage.local.set({savedProfiles: savedProfiles}, function() {
-        setTimeout(() => {
-          saveBtn.innerHTML = originalText;
-          saveBtn.classList.remove('success-action');
-        }, 2000);
-      });
-    });
-  });
-
   retryBtn.addEventListener('click', function() {
     extractBtn.click();
   });
@@ -365,13 +359,7 @@ document.addEventListener('DOMContentLoaded', function() {
   helpLink.addEventListener('click', function(e) {
     e.preventDefault();
     // Show a help modal or redirect to help page
-    alert('LinkedIn Insight Tracker Help\n\nThis extension extracts follower counts and last activity dates from LinkedIn profiles.\n\nTo use:\n1. Navigate to a LinkedIn profile\n2. Click "Extract Data"\n3. View and save the results');
-  });
-
-  settingsLink.addEventListener('click', function(e) {
-    e.preventDefault();
-    // Show settings modal
-    alert('Settings feature coming in the next update!');
+    alert('LinkedIn Insight Tracker Help\n\nThis extension extracts follower counts and last activity dates from LinkedIn profiles.\n\nTo use:\n1. Enter one or more LinkedIn profile URLs (one per line)\n2. Click "Extract Data"\n3. View and export the results in CSV, JSON, or Excel format');
   });
 
   // Export button event listeners - make sure these are properly connected
@@ -542,4 +530,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 3000);
   }
 
+  // Load saved URLs when popup is opened
+  loadSavedUrls();
 });
