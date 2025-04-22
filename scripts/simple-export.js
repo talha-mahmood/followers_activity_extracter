@@ -1,5 +1,6 @@
 /**
  * Simple direct export functions for LinkedIn Insight Tracker
+ * Supports exporting multiple profiles at once
  */
 
 // Export to CSV

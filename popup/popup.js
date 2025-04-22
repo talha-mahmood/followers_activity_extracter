@@ -19,6 +19,12 @@ document.addEventListener('DOMContentLoaded', function() {
   const exportJsonBtn = document.getElementById('export-json');
   const exportExcelBtn = document.getElementById('export-excel');
 
+  // Add new variables for batch processing
+  const profilesContainer = document.getElementById('profiles-container');
+  let profilesData = []; // Will store data for all processed profiles
+  let processingQueue = []; // Queue of URLs to process
+  let isProcessing = false; // Flag to prevent multiple batch processes
+
   // Set current date in the refresh hint
   const refreshHint = document.querySelector('.refresh-hint');
   refreshHint.textContent = `Updated ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
@@ -48,46 +54,269 @@ document.addEventListener('DOMContentLoaded', function() {
     linkedinUrlInput.focus();
   });
 
+  // Modify the extractBtn click handler for batch processing
   extractBtn.addEventListener('click', function() {
-    const url = linkedinUrlInput.value.trim();
+    const urlsText = linkedinUrlInput.value.trim();
     
-    if (!url || !url.includes('linkedin.com/in/')) {
-      showError('Please enter a valid LinkedIn profile URL');
+    if (!urlsText) {
+      showError('Please enter at least one LinkedIn profile URL');
       return;
     }
     
-    // Add extraction animation
+    // Parse multiple URLs (one per line)
+    const urls = urlsText.split('\n')
+      .map(url => url.trim())
+      .filter(url => url && url.includes('linkedin.com/in/'));
+    
+    if (urls.length === 0) {
+      showError('No valid LinkedIn profile URLs found');
+      return;
+    }
+    
+    // Reset data from previous run
+    profilesData = [];
+    processingQueue = [...urls]; // Create a copy of the URLs array
+    
+    // Show loading state
     extractBtn.classList.add('extracting');
     extractBtn.innerHTML = '<span class="btn-text">Extracting...</span>';
     
-    showLoading();
+    // Clear previous results and prepare container
+    profilesContainer.innerHTML = '';
     
-    // Check if we need to navigate to the URL first
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      const currentUrl = tabs[0].url;
-      
-      if (currentUrl === url || (currentUrl.includes('linkedin.com/in/') && url.includes('linkedin.com/in/'))) {
-        // We're already on a LinkedIn profile page, extract data
-        extractData(tabs[0].id);
-      } else {
-        // Navigate to the URL first, then extract data
-        chrome.tabs.update({url: url}, function(tab) {
-          // Wait for page to load before extracting data
-          chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo) {
-            if (tabId === tab.id && changeInfo.status === 'complete') {
-              chrome.tabs.onUpdated.removeListener(listener);
-              setTimeout(() => extractData(tab.id), 2500); // Give the page more time to fully load
-            }
-          });
-        });
-      }
-    });
+    // Create progress elements
+    const progressContainer = document.createElement('div');
+    progressContainer.className = 'progress-container';
+    progressContainer.innerHTML = `
+      <div class="progress-label">
+        <span>Processing profiles...</span>
+        <span id="progress-text">0/${urls.length}</span>
+      </div>
+      <div class="progress-bar">
+        <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+      </div>
+    `;
+    profilesContainer.appendChild(progressContainer);
+    
+    // Show results container with progress bar
+    resultsSection.classList.remove('hidden');
+    errorSection.classList.add('hidden');
+    loadingSection.classList.add('hidden');
+    
+    // Start batch processing
+    isProcessing = true;
+    processNextProfile();
   });
+  
+  // Function to process profiles one by one
+  function processNextProfile() {
+    if (processingQueue.length === 0) {
+      // All profiles processed
+      finishBatchProcessing();
+      return;
+    }
+    
+    const url = processingQueue[0];
+    const profileIndex = profilesData.length;
+    const totalProfiles = profilesData.length + processingQueue.length;
+    
+    // Update progress indicator
+    updateProgress(profileIndex, totalProfiles);
+    
+    // Create a placeholder card for this profile
+    addProfileCard({
+      profile_url: url,
+      profile_name: getProfileNameFromUrl(url),
+      status: 'pending'
+    }, profileIndex);
+    
+    // Process this profile
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      const currentTabId = tabs[0].id;
+      
+      // Navigate to the profile URL
+      chrome.tabs.update({url: url}, function(tab) {
+        // Wait for page to load before extracting data
+        chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo) {
+          if (tabId === tab.id && changeInfo.status === 'complete') {
+            chrome.tabs.onUpdated.removeListener(listener);
+            
+            // Wait a bit more for LinkedIn to fully load
+            setTimeout(() => {
+              // Extract data from this profile
+              chrome.tabs.sendMessage(tabId, {action: "extractData"}, function(response) {
+                // Remove this URL from the queue
+                processingQueue.shift();
+                
+                if (chrome.runtime.lastError || !response || response.error) {
+                  // Error with this profile
+                  profilesData.push({
+                    profile_url: url,
+                    profile_name: getProfileNameFromUrl(url),
+                    followers: 'Error',
+                    last_activity: 'Error',
+                    extracted_at: new Date().toISOString(),
+                    error: chrome.runtime.lastError?.message || response?.error || 'Failed to extract data'
+                  });
+                  
+                  // Update the profile card to show error
+                  updateProfileCard(profileIndex, {
+                    profile_url: url,
+                    profile_name: getProfileNameFromUrl(url),
+                    followers: 'Error',
+                    last_activity: 'Error',
+                    status: 'error'
+                  });
+                } else {
+                  // Success with this profile
+                  const profileData = {
+                    profile_url: url,
+                    profile_name: getProfileNameFromUrl(url),
+                    followers: response.followers || 'Not available',
+                    last_activity: response.lastActivity || 'Not available',
+                    extracted_at: new Date().toISOString()
+                  };
+                  
+                  profilesData.push(profileData);
+                  
+                  // Update the profile card with the extracted data
+                  updateProfileCard(profileIndex, {
+                    ...profileData,
+                    status: 'success'
+                  });
+                }
+                
+                // Process the next profile in the queue
+                processNextProfile();
+              });
+            }, 2500);
+          }
+        });
+      });
+    });
+  }
+  
+  // Helper function to get profile name from URL
+  function getProfileNameFromUrl(url) {
+    return url.split('/in/')[1]?.split('/')[0] || 'Unknown Profile';
+  }
+  
+  // Function to update progress bar
+  function updateProgress(current, total) {
+    const progressText = document.getElementById('progress-text');
+    const progressFill = document.getElementById('progress-fill');
+    
+    if (progressText && progressFill) {
+      progressText.textContent = `${current}/${total}`;
+      progressFill.style.width = `${(current / total) * 100}%`;
+    }
+  }
+  
+  // Function to finalize batch processing
+  function finishBatchProcessing() {
+    isProcessing = false;
+    
+    // Reset extract button state
+    extractBtn.classList.remove('extracting');
+    extractBtn.innerHTML = '<span class="btn-text">Extract Data</span><span class="material-icons-round">arrow_forward</span>';
+    
+    // Remove progress bar
+    const progressContainer = document.querySelector('.progress-container');
+    if (progressContainer) {
+      progressContainer.remove();
+    }
+    
+    // Update the refresh time
+    refreshHint.textContent = `Updated ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+  }
+  
+  // Function to add a profile card to the results
+  function addProfileCard(profileData, index) {
+    const card = document.createElement('div');
+    card.className = 'profile-card';
+    card.id = `profile-card-${index}`;
+    
+    let statusClass = 'status-pending';
+    let statusText = 'Pending';
+    
+    if (profileData.status === 'success') {
+      statusClass = 'status-success';
+      statusText = 'Success';
+    } else if (profileData.status === 'error') {
+      statusClass = 'status-error';
+      statusText = 'Error';
+    }
+    
+    card.innerHTML = `
+      <div class="profile-header">
+        <div>
+          <div class="profile-name">${profileData.profile_name}</div>
+          <div class="profile-url">${profileData.profile_url}</div>
+        </div>
+        <span class="profile-status ${statusClass}">${statusText}</span>
+      </div>
+      <div class="profile-metrics">
+        <div class="profile-metric">
+          <div class="metric-label">Followers</div>
+          <div class="metric-value">${profileData.followers || '-'}</div>
+        </div>
+        <div class="profile-metric">
+          <div class="metric-label">Last Activity</div>
+          <div class="metric-value">${profileData.last_activity || '-'}</div>
+        </div>
+      </div>
+    `;
+    
+    profilesContainer.appendChild(card);
+  }
+  
+  // Function to update an existing profile card
+  function updateProfileCard(index, profileData) {
+    const card = document.getElementById(`profile-card-${index}`);
+    if (!card) return;
+    
+    let statusClass = 'status-pending';
+    let statusText = 'Pending';
+    
+    if (profileData.status === 'success') {
+      statusClass = 'status-success';
+      statusText = 'Success';
+    } else if (profileData.status === 'error') {
+      statusClass = 'status-error';
+      statusText = 'Error';
+    }
+    
+    card.innerHTML = `
+      <div class="profile-header">
+        <div>
+          <div class="profile-name">${profileData.profile_name}</div>
+          <div class="profile-url">${profileData.profile_url}</div>
+        </div>
+        <span class="profile-status ${statusClass}">${statusText}</span>
+      </div>
+      <div class="profile-metrics">
+        <div class="profile-metric">
+          <div class="metric-label">Followers</div>
+          <div class="metric-value">${profileData.followers || '-'}</div>
+        </div>
+        <div class="profile-metric">
+          <div class="metric-label">Last Activity</div>
+          <div class="metric-value">${profileData.last_activity || '-'}</div>
+        </div>
+      </div>
+    `;
+  }
 
   copyBtn.addEventListener('click', function() {
-    const resultText = `LinkedIn Insight Tracker Results:\n` +
-                      `Followers: ${followersCount.textContent}\n` + 
-                      `Last Activity: ${lastActivity.textContent}`;
+    let resultText = `LinkedIn Insight Tracker Results:\n\n`;
+    
+    profilesData.forEach((profile, index) => {
+      resultText += `Profile ${index + 1}: ${profile.profile_name}\n`;
+      resultText += `URL: ${profile.profile_url}\n`;
+      resultText += `Followers: ${profile.followers}\n`;
+      resultText += `Last Activity: ${profile.last_activity}\n`;
+      resultText += `Extracted: ${new Date(profile.extracted_at).toLocaleString()}\n\n`;
+    });
     
     navigator.clipboard.writeText(resultText).then(function() {
       const originalText = copyBtn.innerHTML;
@@ -115,15 +344,9 @@ document.addEventListener('DOMContentLoaded', function() {
     chrome.storage.local.get('savedProfiles', function(data) {
       const savedProfiles = data.savedProfiles || [];
       
-      // Get profile name from URL
-      const profileName = linkedinUrlInput.value.split('/in/')[1]?.split('/')[0] || 'Unknown Profile';
-      
-      savedProfiles.push({
-        url: linkedinUrlInput.value,
-        name: profileName,
-        followers: followersCount.textContent,
-        lastActivity: lastActivity.textContent,
-        savedAt: new Date().toISOString()
+      // Add all current profiles to saved profiles
+      profilesData.forEach(profile => {
+        savedProfiles.push(profile);
       });
       
       chrome.storage.local.set({savedProfiles: savedProfiles}, function() {
@@ -256,45 +479,37 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // Function to export data in various formats
+  // Update the export function for multiple profiles
   function exportData(format) {
-    console.log(`Starting export in ${format} format`);
+    console.log(`Starting export in ${format} format for ${profilesData.length} profiles`);
     
-    // Get profile name from URL
-    const profileUrl = linkedinUrlInput.value;
-    const profileName = profileUrl.split('/in/')[1]?.split('/')[0] || 'unknown-profile';
+    if (profilesData.length === 0) {
+      alert('No profile data to export');
+      return;
+    }
     
-    // Create a timestamp
+    // Create a timestamp for the filename
     const now = new Date();
     const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
-    // Build dataset
-    const data = [{
-      profile_url: profileUrl,
-      profile_name: profileName,
-      followers: followersCount.textContent,
-      last_activity: lastActivity.textContent,
-      extracted_at: now.toISOString()
-    }];
-    
-    console.log('Export data prepared:', data);
-    
-    // Generate filename
-    const filename = `linkedin-insights-${profileName}-${timestamp}`;
+    // Generate filename based on number of profiles
+    const filename = profilesData.length === 1
+      ? `linkedin-insights-${profilesData[0].profile_name}-${timestamp}`
+      : `linkedin-insights-multiple-profiles-${timestamp}`;
     
     // Use the simple export functions
     try {
-      console.log(`Exporting as ${format}...`);
+      console.log(`Exporting ${profilesData.length} profiles as ${format}...`);
       
       switch(format) {
         case 'csv':
-          SimpleExport.toCsv(data, `${filename}.csv`);
+          SimpleExport.toCsv(profilesData, `${filename}.csv`);
           break;
         case 'json':
-          SimpleExport.toJson(data, `${filename}.json`);
+          SimpleExport.toJson(profilesData, `${filename}.json`);
           break;
         case 'excel':
-          SimpleExport.toExcel(data, `${filename}.xls`);
+          SimpleExport.toExcel(profilesData, `${filename}.xls`);
           break;
       }
       
