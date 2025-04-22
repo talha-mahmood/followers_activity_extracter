@@ -662,6 +662,7 @@ h1 span {
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
   transition: var(--transition);
+  cursor: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyJpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMy1jMDExIDY2LjE0NTY2MSwgMjAxMi8wMi8wNi0xNDo1NjoyNyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENTNiAoV2luZG93cykiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6RERCMUIwQTM4NkNFMTFFM0FBNTJFRTMzNTJEMUJDNDYiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6RERCMUIwQTQ4NkNFMTFFM0FBNTJFRTMzNTJEMUJDNDYiPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0ieG1wLmlpZDpEREIxQjBBMTg2Q0UxMUUzQUE1MkVFMzM1MkQxQkM0NiIgc3RSZWY6ZG9jdW1lbnRJRD0ieG1wLmRpZDpEREIxQjBBMjg2Q0UxMUUzQUE1MkVFMzM1MkQxQkM0NiIvPiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PgH8lG8AAAWYSURBVHjabFdbbBRVGP7OzOzsbbuXlrK0hbZcWiUUtgRMUCFKfLFGkCCJD2oIIUYixOgDimhEQzQhSgxPGk2IWgwSolbDgw8GBdQSrhEqYm0LtlCxdOnu9jZzOTPez9nZbnFPsjNn5pz//3/f9/3nHMYYw4bBwKK50jQpl5nZltkuy9aKcbsbHp4+LlpZ/9cNHPs5T9YklKkxK6TwYxeum3nroyHLLiQAmcQ01Ung5KBx4c125YdiQe+U2iQGZCMUVf3K47/f6u1BbtCQR1I2F6D6fK5q7LQpW3i5WhHjV/a64sLxQ3qLZhI28JMsPqDyQDqhZzIZIWPxkciw7p384YYxzBbEARLB4HdnLTmWJPhEgKKiwgN5HL7wXE1C2aEaGLOMK5I+YlEUn7mY2rTr0nAGc0USALHuXI+KLevL4ZorQ5kSYKlKPqhcRPcLdaULgJEg2FXbi4LGe6NbCoIgecspOXcCKtauKsbiRfZSQIHzwJwSWCkD8aV2eO8foUHBRULXbfqYc8CXv09kUUfcCMjEgStuoSshLzy7XJ0vHGjyhkogHnkaXkc7WLyMrK+jPRfimQN0LgL4TV+fAkbmvk9d7BrJzJ5u/4qP+wQH/CewJl4bwaJltA6xnRvBd+5EZOgKWCZJnqBzDR4R/OZNxC+cRXj5DiKVnw7aXCRkjmXTe4++8Ob/5IBJ1qeHJnThW1yEduFHxI8eAF+2BvGzP0M+fATKS2+BxcsgkjGIT0gP6YCVd+60j6Kz5Ue4c48KSTZ5YM7LbQQBQpQsJFNC25+OYQNe1n8VtT274fX1Iqr3QX3tdThdPyM91AdWu4jkMa51MozJbfshkknET7wZN0KmJTmgJV10HhiZBkWXlxQ4QAIM/dhNRW8L1x3vQ83q1QidOkZV0EuBlISRZJiW4JSCPZiA4wPn6Z65cCIm6dvJgXHTNFsX1pbmvIDEhN/FsII+Sq04aMVKC+YzuxDGM5Acoz/F/Qbh1E/QrtO5OQpWVQ8t7jozJY9IPdGYgWGQbYYNnN7I3wF5QLR2sVB+4F4iFi6e7KyvQ/jdQ1P2SBDRb05BY7v+5V5YvbeJHNfpnbmQCpnbJAfGKAkfUABmJqE7FeThCoVSrMxyhzDGrrfJZGRiZoJd/LQbc8c+JsRziL6yB2p84YRftARW4hZYPJYNxvC4LhIyZi9WcoBF8tgiQGRwwpiYhC48YiXK5M0WD9OXhXcTptGLyd7ZWVDmLoFSQRyJUk7YY+AhghnXpsgF6MXmTvKAOSDJ1aLcmQahUCq9lq6Jc8rDGsF2r6PftgsR1lBowyNQI06BCiOjtjAg+RkdprP8MxjX+lN+7kfICUlyoJ+Kq4GIOb97T0wYcrgktFwXdpgMXrsR8vKHodbVgZeWUd0bkD4hccirWzPCyOYCqy45/MmNscG+lG9eZiTNgd+p0XySM45mpWZO5GwmYXetK4W644DcLCQPWV8fXJpA7DwpNcLzJqZKgRTRgcHrN35/p/1CGnNBTnZBsqPnqQJOZaehJA+f7FHsxZsroD6+OB/A7eqjSUiNmKZJG1G2Z1g8BrtzBzm4O/fkpANSBF9s/+rq4OBIM5XgP4T5G5H0BN00rk/lFsYMu29jBcJblvudUNR0OFVKGiQLXq5/NcKtm8EnJetkDsg1f/Lw2S9PD2H/TZB0QIriqT5F0GHUme+v0w0uCzBsf74aoR2b810v9z4JgHcSiWMvQ2QC+Kc456BTjHT8ePfBl28MHaYt+Z9JIMn5xDQXmBSUwOKFDhtqLUG4dWPWcinEiM3hXtmHzLnjYOOj/guTdSBFXP7q9/c6Tu7v6c1gXsgJFGzUsg7kxCjGTFQVYby1jvLgGZJHfxvwn3FnZB/M9JwFG+jJdj/f6v+3AAMAjL/JdxYeJgoAAAAASUVORK5CYII='), auto;
 }
 
 .profile-card:hover {
@@ -768,9 +769,14 @@ h1 span {
 
 .progress-label {
   display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+
+.progress-label > div:first-child {
+  display: flex;
   justify-content: space-between;
-  margin-bottom: 6px;
-  font-size: 12px;
+  margin-bottom: 4px;
 }
 
 .progress-bar {
@@ -785,4 +791,33 @@ h1 span {
   background-color: var(--primary);
   border-radius: 3px;
   transition: width 0.3s ease;
+}
+
+/* Human action message styles */
+.human-action-msg {
+  font-size: 12px;
+  color: var(--primary);
+  margin-top: 6px;
+  font-style: italic;
+  position: relative;
+  padding-left: 20px;
+}
+
+.human-action-msg::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  border: 2px solid var(--primary);
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: humanActionSpin 1.2s linear infinite;
+}
+
+@keyframes humanActionSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }

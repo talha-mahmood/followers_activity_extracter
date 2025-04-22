@@ -1,21 +1,54 @@
 console.log("LinkedIn Insight Tracker: Content script loaded");
 
+// Add subtle scroll behavior to simulate human browsing
+function simulateHumanBehavior() {
+  // Simulate human-like scrolling
+  const scrollPoints = [300, 600, 900, 1200, 800, 400];
+  let currentIndex = 0;
+
+  const scrollInterval = setInterval(() => {
+    window.scrollTo({
+      top: scrollPoints[currentIndex],
+      behavior: 'smooth'
+    });
+    
+    currentIndex++;
+    if (currentIndex >= scrollPoints.length) {
+      clearInterval(scrollInterval);
+    }
+  }, 800 + Math.random() * 500); // Random delay between scrolls
+  
+  // Clear the interval after a timeout to ensure it stops
+  setTimeout(() => {
+    clearInterval(scrollInterval);
+  }, 5000);
+}
+
 // Listen for messages from the popup
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if (request.action === "extractData") {
     try {
       console.log("LinkedIn Insight Tracker: Starting data extraction");
       
-      const data = {
-        followers: extractFollowersCount(),
-        lastActivity: extractLastActivity()
-      };
+      // Simulate human behavior before extracting
+      simulateHumanBehavior();
       
-      console.log("LinkedIn Insight Tracker: Extracted data", data);
-      sendResponse(data);
+      // Add slight delay before responding to simulate human data processing
+      setTimeout(() => {
+        const data = {
+          followers: extractFollowersCount(),
+          lastActivity: extractLastActivity()
+        };
+        
+        console.log("LinkedIn Insight Tracker: Extracted data", data);
+        sendResponse(data);
+      }, 800 + Math.random() * 1200); // Random delay between 800ms and 2000ms
+      
+      return true; // Keep the message channel open for async response
     } catch (error) {
       console.error("LinkedIn Insight Tracker: Error extracting data", error);
       sendResponse({error: "Failed to extract data: " + error.message});
+      return true;
     }
   }
   return true; // Keep the message channel open for async response

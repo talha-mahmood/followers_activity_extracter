@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "LinkedIn Insight Tracker",
   "version": "1.0.0",
-  "description": "Extract follower count and last activity date from LinkedIn profiles",
+  "description": "Extract follower count and last activity date from LinkedIn profiles with natural browsing behavior",
   "permissions": ["activeTab", "storage", "downloads"],
   "host_permissions": ["*://*.linkedin.com/*"],
   "action": {
@@ -29,7 +29,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["scripts/export-utils.js"],
+      "resources": ["scripts/export-utils.js", "assets/*"],
       "matches": ["<all_urls>"]
     }
   ]

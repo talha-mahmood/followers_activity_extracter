@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', function() {
     processNextProfile();
   });
   
-  // Function to process profiles one by one
+  // Function to process profiles one by one with humanoid delays
   function processNextProfile() {
     if (processingQueue.length === 0) {
       // All profiles processed
@@ -175,70 +175,129 @@ document.addEventListener('DOMContentLoaded', function() {
       status: 'pending'
     }, profileIndex);
     
-    // Process this profile
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      const currentTabId = tabs[0].id;
-      
-      // Navigate to the profile URL
-      chrome.tabs.update({url: url}, function(tab) {
-        // Wait for page to load before extracting data
-        chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo) {
-          if (tabId === tab.id && changeInfo.status === 'complete') {
-            chrome.tabs.onUpdated.removeListener(listener);
-            
-            // Wait a bit more for LinkedIn to fully load
-            setTimeout(() => {
-              // Extract data from this profile
-              chrome.tabs.sendMessage(tabId, {action: "extractData"}, function(response) {
-                // Remove this URL from the queue
-                processingQueue.shift();
+    // Add human-like delay message
+    showHumanActionMessage("Navigating to profile...");
+    
+    // Process this profile with human-like delay
+    setTimeout(() => {
+      chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+        const currentTabId = tabs[0].id;
+        
+        // Navigate to the profile URL
+        chrome.tabs.update({url: url}, function(tab) {
+          // Wait for page to load before extracting data
+          chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo) {
+            if (tabId === tab.id && changeInfo.status === 'complete') {
+              chrome.tabs.onUpdated.removeListener(listener);
+              
+              // Show human action message
+              showHumanActionMessage("Looking at profile content...");
+              
+              // Add human-like variable delay before extracting data (between 3-7 seconds)
+              // This simulates a human actually reading the profile
+              const humanReadDelay = 3000 + Math.floor(Math.random() * 4000);
+              
+              setTimeout(() => {
+                // Show extraction message
+                showHumanActionMessage("Gathering profile information...");
                 
-                if (chrome.runtime.lastError || !response || response.error) {
-                  // Error with this profile
-                  profilesData.push({
-                    profile_url: url,
-                    profile_name: getProfileNameFromUrl(url),
-                    followers: 'Error',
-                    last_activity: 'Error',
-                    extracted_at: new Date().toISOString(),
-                    error: chrome.runtime.lastError?.message || response?.error || 'Failed to extract data'
-                  });
+                // Extract data from this profile
+                chrome.tabs.sendMessage(tabId, {action: "extractData"}, function(response) {
+                  // Remove this URL from the queue
+                  processingQueue.shift();
                   
-                  // Update the profile card to show error
-                  updateProfileCard(profileIndex, {
-                    profile_url: url,
-                    profile_name: getProfileNameFromUrl(url),
-                    followers: 'Error',
-                    last_activity: 'Error',
-                    status: 'error'
-                  });
-                } else {
-                  // Success with this profile
-                  const profileData = {
-                    profile_url: url,
-                    profile_name: getProfileNameFromUrl(url),
-                    followers: response.followers || 'Not available',
-                    last_activity: response.lastActivity || 'Not available',
-                    extracted_at: new Date().toISOString()
-                  };
+                  if (chrome.runtime.lastError || !response || response.error) {
+                    // Error with this profile
+                    profilesData.push({
+                      profile_url: url,
+                      profile_name: getProfileNameFromUrl(url),
+                      followers: 'Error',
+                      last_activity: 'Error',
+                      extracted_at: new Date().toISOString(),
+                      error: chrome.runtime.lastError?.message || response?.error || 'Failed to extract data'
+                    });
+                    
+                    // Update the profile card to show error
+                    updateProfileCard(profileIndex, {
+                      profile_url: url,
+                      profile_name: getProfileNameFromUrl(url),
+                      followers: 'Error',
+                      last_activity: 'Error',
+                      status: 'error'
+                    });
+                  } else {
+                    // Success with this profile
+                    const profileData = {
+                      profile_url: url,
+                      profile_name: getProfileNameFromUrl(url),
+                      followers: response.followers || 'Not available',
+                      last_activity: response.lastActivity || 'Not available',
+                      extracted_at: new Date().toISOString()
+                    };
+                    
+                    profilesData.push(profileData);
+                    
+                    // Update the profile card with the extracted data
+                    updateProfileCard(profileIndex, {
+                      ...profileData,
+                      status: 'success'
+                    });
+                  }
                   
-                  profilesData.push(profileData);
+                  // Human-like thinking delay before moving to next profile
+                  showHumanActionMessage("Analyzing data...");
                   
-                  // Update the profile card with the extracted data
-                  updateProfileCard(profileIndex, {
-                    ...profileData,
-                    status: 'success'
-                  });
-                }
-                
-                // Process the next profile in the queue
-                processNextProfile();
-              });
-            }, 2500);
-          }
+                  // Add a random pause between profiles (between 2-5 seconds)
+                  const betweenProfilesDelay = 2000 + Math.floor(Math.random() * 3000);
+                  setTimeout(() => {
+                    // Process the next profile in the queue
+                    processNextProfile();
+                  }, betweenProfilesDelay);
+                });
+              }, humanReadDelay);
+            }
+          });
         });
       });
-    });
+    }, 1500); // Initial delay before navigating to the profile
+  }
+  
+  // Function to show human-like action messages
+  function showHumanActionMessage(message) {
+    const progressText = document.getElementById('progress-text');
+    const container = document.querySelector('.progress-label');
+    
+    // Check if we already have an action message element
+    let actionMsg = document.getElementById('human-action-msg');
+    if (!actionMsg) {
+      // Create one if it doesn't exist
+      actionMsg = document.createElement('div');
+      actionMsg.id = 'human-action-msg';
+      actionMsg.className = 'human-action-msg';
+      container.appendChild(actionMsg);
+    }
+    
+    // Update the message with typing effect
+    typeMessage(actionMsg, message);
+  }
+  
+  // Create a typing effect for messages
+  function typeMessage(element, message) {
+    let i = 0;
+    element.textContent = "";
+    
+    // Clear any existing typing interval
+    if (window.typingInterval) clearInterval(window.typingInterval);
+    
+    // Start typing effect
+    window.typingInterval = setInterval(() => {
+      if (i < message.length) {
+        element.textContent += message.charAt(i);
+        i++;
+      } else {
+        clearInterval(window.typingInterval);
+      }
+    }, 50 + Math.random() * 30); // Variable typing speed
   }
   
   // Helper function to get profile name from URL
