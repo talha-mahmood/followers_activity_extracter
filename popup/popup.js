@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
   let profilesData = []; // Will store data for all processed profiles
   let processingQueue = []; // Queue of URLs to process
   let isProcessing = false; // Flag to prevent multiple batch processes
+  let stopExtraction = false; // Flag to indicate if extraction should be stopped
 
   // Add save settings button
   const saveSettingsBtn = document.createElement('button');
@@ -31,6 +32,13 @@ document.addEventListener('DOMContentLoaded', function() {
   // Insert save settings button after extract button
   const urlInputContainer = document.querySelector('.url-input-container');
   urlInputContainer.appendChild(saveSettingsBtn);
+
+  // Add stop extraction button
+  const stopBtn = document.createElement('button');
+  stopBtn.id = 'stop-btn';
+  stopBtn.className = 'stop-btn hidden';
+  stopBtn.innerHTML = '<span class="material-icons-round">stop</span><span>Stop Extraction</span>';
+  urlInputContainer.appendChild(stopBtn);
 
   // Set current date in the refresh hint
   const refreshHint = document.querySelector('.refresh-hint');
@@ -121,10 +129,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Reset data from previous run
     profilesData = [];
     processingQueue = [...urls]; // Create a copy of the URLs array
+    stopExtraction = false; // Reset stop flag
     
     // Show loading state
     extractBtn.classList.add('extracting');
     extractBtn.innerHTML = '<span class="btn-text">Extracting...</span>';
+    
+    // Show stop button
+    stopBtn.classList.remove('hidden');
     
     // Clear previous results and prepare container
     profilesContainer.innerHTML = '';
@@ -152,9 +164,23 @@ document.addEventListener('DOMContentLoaded', function() {
     isProcessing = true;
     processNextProfile();
   });
+
+  // Add event listener for stop button
+  stopBtn.addEventListener('click', function() {
+    stopExtraction = true;
+    processingQueue = []; // Clear the queue to stop processing
+    finishBatchProcessing();
+  });
   
-  // Function to process profiles one by one with humanoid delays
+  // Update the processNextProfile function to check for stop flag
   function processNextProfile() {
+    // Check if extraction should be stopped
+    if (stopExtraction) {
+      console.log("LinkedIn Insight Tracker: Extraction stopped by user");
+      finishBatchProcessing();
+      return;
+    }
+    
     if (processingQueue.length === 0) {
       // All profiles processed
       finishBatchProcessing();
@@ -185,10 +211,22 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Navigate to the profile URL
         chrome.tabs.update({url: url}, function(tab) {
+          // Check if extraction was stopped before page finishes loading
+          if (stopExtraction) {
+            finishBatchProcessing();
+            return;
+          }
+          
           // Wait for page to load before extracting data
           chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo) {
             if (tabId === tab.id && changeInfo.status === 'complete') {
               chrome.tabs.onUpdated.removeListener(listener);
+              
+              // Check again if extraction was stopped after page loaded
+              if (stopExtraction) {
+                finishBatchProcessing();
+                return;
+              }
               
               // Show human action message
               showHumanActionMessage("Looking at profile content...");
@@ -250,8 +288,14 @@ document.addEventListener('DOMContentLoaded', function() {
                   // Add a random pause between profiles (between 2-5 seconds)
                   const betweenProfilesDelay = 2000 + Math.floor(Math.random() * 3000);
                   setTimeout(() => {
-                    // Process the next profile in the queue
-                    processNextProfile();
+                    // Check if extraction should be stopped before processing next profile
+                    if (!stopExtraction) {
+                      // Process the next profile in the queue
+                      processNextProfile();
+                    } else {
+                      // Finalize if stopped
+                      finishBatchProcessing();
+                    }
                   }, betweenProfilesDelay);
                 });
               }, humanReadDelay);
@@ -316,18 +360,35 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   
-  // Function to finalize batch processing
+  // Update the finishBatchProcessing function to handle stopping
   function finishBatchProcessing() {
     isProcessing = false;
     
     // Reset extract button state
-    extractBtn.classList.remove('extracting');
+    extractBtn.classList.remove('extracting', 'hidden');
     extractBtn.innerHTML = '<span class="btn-text">Extract Data</span><span class="material-icons-round">arrow_forward</span>';
+    
+    // Hide stop button
+    stopBtn.classList.add('hidden');
     
     // Remove progress bar
     const progressContainer = document.querySelector('.progress-container');
     if (progressContainer) {
       progressContainer.remove();
+    }
+    
+    // Show message if stopped
+    if (stopExtraction) {
+      const statusMessage = document.createElement('div');
+      statusMessage.className = 'status-message extraction-stopped';
+      statusMessage.innerHTML = `<span class="material-icons-round">info</span> Extraction stopped. Processed ${profilesData.length} of ${profilesData.length + processingQueue.length} profiles.`;
+      profilesContainer.prepend(statusMessage);
+      
+      // Remove the message after some time
+      setTimeout(() => {
+        statusMessage.classList.add('fade-out');
+        setTimeout(() => statusMessage.remove(), 500);
+      }, 5000);
     }
     
     // Update the refresh time
