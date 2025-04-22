@@ -1,3 +1,5 @@
+console.log("LinkedIn Insight Tracker: Content script loaded");
+
 // Listen for messages from the popup
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if (request.action === "extractData") {
@@ -22,7 +24,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 function extractFollowersCount() {
   console.log("LinkedIn Insight Tracker: Extracting followers count");
   
-  // Updated selectors for modern LinkedIn UI
+  // Try multiple selectors as LinkedIn's DOM structure might change over time
   const followersSelectors = [
     // New LinkedIn UI selectors
     '.artdeco-entity-lockup__subtitle span',
@@ -39,45 +41,40 @@ function extractFollowersCount() {
     '.pv-recent-activity-section__follower-count span'
   ];
   
-  // Manual DOM traversal as a fallback
-  try {
-    // Look for text that contains 'followers'
-    const allSpans = document.querySelectorAll('span');
-    for (const span of allSpans) {
-      const text = span.textContent.trim();
-      if (text.includes('follower')) {
-        console.log("LinkedIn Insight Tracker: Found follower text:", text);
-        const match = text.match(/([\d,]+)\s+follower/i);
-        if (match) {
-          return match[1];
-        }
+  // Look for text that contains 'followers'
+  const allSpans = document.querySelectorAll('span');
+  for (const span of allSpans) {
+    const text = span.textContent.trim();
+    if (text.includes('follower')) {
+      console.log("LinkedIn Insight Tracker: Found follower text:", text);
+      const match = text.match(/([\d,]+)\s+follower/i);
+      if (match) {
+        return match[1];
       }
     }
-    
-    // Try with querySelector for each selector
-    for (const selector of followersSelectors) {
-      try {
-        const elements = document.querySelectorAll(selector);
-        console.log(`LinkedIn Insight Tracker: Trying selector ${selector}, found ${elements.length} elements`);
+  }
+  
+  // Try with querySelector for each selector
+  for (const selector of followersSelectors) {
+    try {
+      const elements = document.querySelectorAll(selector);
+      console.log(`LinkedIn Insight Tracker: Trying selector ${selector}, found ${elements.length} elements`);
+      
+      for (const element of elements) {
+        const text = element.textContent.trim();
+        console.log(`LinkedIn Insight Tracker: Element text: "${text}"`);
         
-        for (const element of elements) {
-          const text = element.textContent.trim();
-          console.log(`LinkedIn Insight Tracker: Element text: "${text}"`);
-          
-          if (text.includes('follower')) {
-            const match = text.match(/([\d,]+)/);
-            if (match) {
-              return match[1];
-            }
+        if (text.includes('follower')) {
+          const match = text.match(/([\d,]+)/);
+          if (match) {
+            return match[1];
           }
         }
-      } catch (e) {
-        console.log(`LinkedIn Insight Tracker: Error with selector ${selector}:`, e);
-        // Continue to next selector
       }
+    } catch (e) {
+      console.log(`LinkedIn Insight Tracker: Error with selector ${selector}:`, e);
+      // Continue to next selector
     }
-  } catch (e) {
-    console.error("LinkedIn Insight Tracker: Error in follower extraction:", e);
   }
   
   return "Not available";
@@ -193,15 +190,3 @@ function calculateDaysSince(timeText) {
   
   return timeText; // Return the original text if we couldn't parse it
 }
-
-// Execute immediately on page load to check if extraction works
-console.log("LinkedIn Insight Tracker: Content script loaded");
-setTimeout(() => {
-  try {
-    const followers = extractFollowersCount();
-    const activity = extractLastActivity();
-    console.log("LinkedIn Insight Tracker: Initial extraction test:", { followers, activity });
-  } catch (e) {
-    console.error("LinkedIn Insight Tracker: Initial extraction test failed:", e);
-  }
-}, 2000);

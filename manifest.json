@@ -3,12 +3,21 @@
   "name": "LinkedIn Insight Tracker",
   "version": "1.0.0",
   "description": "Extract follower count and last activity date from LinkedIn profiles",
-  "permissions": ["activeTab", "storage"],
+  "permissions": ["activeTab", "storage", "downloads"],
   "host_permissions": ["*://*.linkedin.com/*"],
   "action": {
-    "default_popup": "popup/popup.html"
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "48": "assets/icon48.png",
+      "128": "assets/icon128.png"
+    }
   },
-
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  },
   "content_scripts": [
     {
       "matches": ["*://*.linkedin.com/in/*"],
@@ -17,5 +26,11 @@
   ],
   "background": {
     "service_worker": "scripts/background.js"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["scripts/export-utils.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }
