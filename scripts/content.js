@@ -37,7 +37,9 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       setTimeout(() => {
         const data = {
           followers: extractFollowersCount(),
-          lastActivity: extractLastActivity()
+          lastActivity: extractLastActivity(),
+          profileName: extractProfileName(),
+          profileDescription: extractProfileDescription()
         };
         
         console.log("LinkedIn Insight Tracker: Extracted data", data);
@@ -222,4 +224,81 @@ function calculateDaysSince(timeText) {
   }
   
   return timeText; // Return the original text if we couldn't parse it
+}
+
+// Add new function to extract profile name
+function extractProfileName() {
+  console.log("LinkedIn Insight Tracker: Extracting profile name");
+  
+  // Try common LinkedIn profile name selectors
+  const nameSelectors = [
+    'h1.text-heading-xlarge',
+    'h1.inline.t-24.v-align-middle.break-words',
+    'h1.top-card-layout__title',
+    'h1.text-heading-large',
+    'h1.pv-top-card-section__name',
+    'h1.artdeco-entity-lockup__title',
+    'h1.profile-topcard-person-entity__name',
+    'h1.MYDYEHKtjEkacpWodAYzOTrrbVonjEpJ',
+    // Generic profile name selector as fallback
+    'h1'
+  ];
+  
+  for (const selector of nameSelectors) {
+    try {
+      const elements = document.querySelectorAll(selector);
+      console.log(`LinkedIn Insight Tracker: Trying selector ${selector}, found ${elements.length} elements`);
+      
+      for (const element of elements) {
+        const text = element.textContent.trim();
+        if (text && text.length > 1 && text.length < 100) {
+          console.log(`LinkedIn Insight Tracker: Found profile name: "${text}"`);
+          return text;
+        }
+      }
+    } catch (e) {
+      console.log(`LinkedIn Insight Tracker: Error with selector ${selector}:`, e);
+    }
+  }
+  
+  return "Not available";
+}
+
+// Add new function to extract profile description
+function extractProfileDescription() {
+  console.log("LinkedIn Insight Tracker: Extracting profile description");
+  
+  // Try common LinkedIn profile description selectors
+  const descSelectors = [
+    'div.text-body-medium.break-words',
+    'div.pv-shared-text-with-see-more',
+    'div.text-body-medium',
+    'h2.mt1.t-18.t-black.t-normal.break-words',
+    'span.text-body-small.inline.t-black--light.break-words',
+    'div[data-generated-suggestion-target]',
+    '.profile-topcard__summary-content span',
+    '.pv-about-section .lt-line-clamp-v2',
+    // Headline selectors
+    '.pv-top-card-section__headline',
+    '.profile-headline'
+  ];
+  
+  for (const selector of descSelectors) {
+    try {
+      const elements = document.querySelectorAll(selector);
+      console.log(`LinkedIn Insight Tracker: Trying description selector ${selector}, found ${elements.length} elements`);
+      
+      for (const element of elements) {
+        const text = element.textContent.trim();
+        if (text && text.length > 10 && text.length < 500) {
+          console.log(`LinkedIn Insight Tracker: Found profile description: "${text}"`);
+          return text;
+        }
+      }
+    } catch (e) {
+      console.log(`LinkedIn Insight Tracker: Error with description selector ${selector}:`, e);
+    }
+  }
+  
+  return "Not available";
 }
