@@ -84,6 +84,7 @@ function extractFollowersCount() {
       console.log("LinkedIn Insight Tracker: Found follower text:", text);
       const match = text.match(/([\d,]+)\s+follower/i);
       if (match) {
+        console.log("LinkedIn Insight Tracker: Extracted follower count (regex 1):", match[1]); // Added log
         return match[1];
       }
     }
@@ -99,11 +100,16 @@ function extractFollowersCount() {
         const text = element.textContent.trim();
         console.log(`LinkedIn Insight Tracker: Element text: "${text}"`);
         
+        // Improved check for follower count patterns
         if (text.includes('follower')) {
-          const match = text.match(/([\d,]+)/);
+          const match = text.match(/([\d,]+)/); // Match digits and commas
           if (match) {
+            console.log("LinkedIn Insight Tracker: Extracted follower count (regex 2):", match[1]); // Added log
             return match[1];
           }
+        } else if (text.match(/^[\d,]+$/)) { // Handle cases where it's just the number
+          console.log("LinkedIn Insight Tracker: Extracted follower count (numeric only):", text); // Added log
+          return text;
         }
       }
     } catch (e) {

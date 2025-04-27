@@ -14,6 +14,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const exportCsvBtn = document.getElementById('export-csv');
   const exportJsonBtn = document.getElementById('export-json');
   const exportExcelBtn = document.getElementById('export-excel');
+  const minFollowersInput = document.getElementById('min-followers-input'); // Added
+  const activityFilterSelect = document.getElementById('activity-filter-select'); // Added
 
   const profilesContainer = document.getElementById('profiles-container');
   let profilesData = [];
@@ -439,78 +441,68 @@ document.addEventListener('DOMContentLoaded', function() {
     console.error('Excel export button not found in the DOM');
   }
 
-  function extractData(tabId) {
-    chrome.tabs.sendMessage(tabId, {action: "extractData"}, function(response) {
-      hideLoading();
-      
-      extractBtn.classList.remove('extracting');
-      extractBtn.innerHTML = '<span class="btn-text">Extract Data</span><span class="material-icons-round">arrow_forward</span>';
-      
-      if (chrome.runtime.lastError) {
-        console.error("LinkedIn Insight Tracker: Runtime error", chrome.runtime.lastError);
-        showError('Content script not loaded. Try refreshing the page.');
-        return;
-      }
-      
-      if (!response) {
-        showError('No response from content script. Try refreshing the page.');
-        return;
-      }
-      
-      if (response.error) {
-        showError(response.error);
-        return;
-      }
-      
-      followersCount.textContent = response.followers || 'Not available';
-      lastActivity.textContent = response.lastActivity || 'Not available';
-      showResults();
-      
-      refreshHint.textContent = `Updated ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
-    });
-  }
-
-  function showLoading() {
-    resultsSection.classList.add('hidden');
-    errorSection.classList.add('hidden');
-    loadingSection.classList.remove('hidden');
-  }
-
-  function hideLoading() {
-    loadingSection.classList.add('hidden');
-  }
-
-  function showResults() {
-    resultsSection.classList.remove('hidden');
-    errorSection.classList.add('hidden');
-    const metricCards = document.querySelectorAll('.metric-card');
-    metricCards.forEach((card, index) => {
-      card.style.opacity = '0';
-      card.style.transform = 'translateY(10px)';
-      setTimeout(() => {
-        card.style.transition = 'all 0.3s ease';
-        card.style.opacity = '1';
-        card.style.transform = 'translateY(0)';
-      }, 100 * (index + 1));
-    });
-  }
-
-  function showError(message) {
-    resultsSection.classList.add('hidden');
-    loadingSection.classList.add('hidden');
-    errorSection.classList.remove('hidden');
-    errorMessage.textContent = message;
-  }
-
-  document.querySelectorAll('.metric-card').forEach(card => {
-    card.addEventListener('mouseover', function() {
-      this.style.transform = 'translateY(-4px)';
-    });
+  // Helper function to parse follower counts (handles commas, k, m)
+  function parseFollowerCount(followerString) {
+    if (!followerString || typeof followerString !== 'string' || followerString.toLowerCase() === 'not available') {
+      return 0;
+    }
     
-    card.addEventListener('mouseout', function() {
-      this.style.transform = 'translateY(-2px)';
-    });
-  });
+    let numStr = followerString.toLowerCase().replace(/,/g, '').trim();
+    let multiplier = 1;
+    
+    if (numStr.endsWith('k')) {
+      multiplier = 1000;
+      numStr = numStr.slice(0, -1);
+    } else if (numStr.endsWith('m')) {
+      multiplier = 1000000;
+      numStr = numStr.slice(0, -1);
+    }
+    
+    const num = parseFloat(numStr);
+    
+    if (isNaN(num)) {
+      return 0; // Return 0 if parsing fails
+    }
+    
+    return Math.round(num * multiplier);
+  }
+
+  // Helper function to parse activity text to days (handles various formats)
+  function parseActivityDays(text) {
+    if (!text || typeof text !== 'string') return Infinity; // Treat missing/invalid as very old
+    
+    const trimmedText = text.trim().toLowerCase();
+    
+    // Direct matches
+    if (trimmedText === 'today' || trimmedText.includes('minute') || trimmedText.includes('hour')) return 0;
+    if (trimmedText === 'yesterday' || trimmedText === '1 day ago') return 1;
+    
+    // Pattern: X days/weeks/months/years ago
+    const timePattern = /^(\d+)\s+(day|week|month|year)s?\s+ago$/i;
+    const match = trimmedText.match(timePattern);
+    
+    if (match) {
+      const value = parseInt(match[1], 10);
+      const unit = match[2].toLowerCase();
+      
+      if (unit === 'day') return value;
+      if (unit === 'week') return value * 7;
+      if (unit === 'month') return value * 30; // Approximation
+      if (unit === 'year') return value * 365; // Approximation
+    }
+
+    // Try parsing specific dates (e.g., "July 15, 2023") - less common for 'last activity'
+    try {
+      const date = new Date(text);
+      if (!isNaN(date.getTime())) {
+        const daysDiff = Math.floor((new Date() - date) / (1000 * 60 * 60 * 24));
+        return daysDiff >= 0 ? daysDiff : Infinity; // Ensure non-negative diff
+      }
+    } catch (e) { /* Ignore date parsing errors */ }
+    
+    // If no pattern matches, consider it old/unknown
+    return Infinity; 
+  }
 
   function exportData(format) {
     console.log(`Starting export in ${format} format for ${profilesData.length} profiles`);
@@ -519,41 +511,101 @@ document.addEventListener('DOMContentLoaded', function() {
       alert('No profile data to export');
       return;
     }
+
+    // --- Filter Setup ---
+    const minFollowersRaw = minFollowersInput.value.trim();
+    const activityFilterValue = activityFilterSelect.value;
+    let minFollowers = 0;
+    let maxActivityDays = Infinity; // Default: no activity limit
+    let filteredProfiles = profilesData; // Start with all profiles
+    let filterMessages = []; // To build user feedback
+
+    // --- Follower Filtering ---
+    if (minFollowersRaw) {
+      minFollowers = parseFollowerCount(minFollowersRaw);
+      if (isNaN(minFollowers) || minFollowers < 0) {
+         alert('Invalid minimum follower count. Please enter a positive number (e.g., 500, 1k, 2.5m).');
+         return;
+      }
+      if (minFollowers > 0) {
+        filterMessages.push(`min ${minFollowers.toLocaleString()} followers`);
+      }
+    }
+
+    // --- Activity Filtering ---
+    if (activityFilterValue) {
+      const match = activityFilterValue.match(/^(\d+)([dwm])$/); // d=day, w=week, m=month
+      if (match) {
+        const value = parseInt(match[1], 10);
+        const unit = match[2];
+        if (unit === 'd') maxActivityDays = value;
+        else if (unit === 'w') maxActivityDays = value * 7;
+        else if (unit === 'm') maxActivityDays = value * 30; // Approximation
+        
+        filterMessages.push(`activity within ${value}${unit === 'd' ? ' day' : unit === 'w' ? ' week' : ' month'}${value > 1 ? 's' : ''}`);
+      }
+    }
+
+    // --- Apply Filters ---
+    if (minFollowers > 0 || maxActivityDays !== Infinity) {
+      console.log(`Applying filters - Min Followers: ${minFollowers}, Max Activity Days: ${maxActivityDays}`);
+      
+      filteredProfiles = profilesData.filter(profile => {
+        const profileFollowers = parseFollowerCount(profile.followers);
+        const profileActivityDays = parseActivityDays(profile.last_activity);
+        
+        const followerMatch = profileFollowers >= minFollowers;
+        const activityMatch = profileActivityDays <= maxActivityDays;
+        
+        return followerMatch && activityMatch;
+      });
+
+      console.log(`Filtering complete. ${filteredProfiles.length} profiles match.`);
+
+      if (filteredProfiles.length === 0) {
+        alert(`No profiles found matching the criteria: ${filterMessages.join(' and ')}.`);
+        return;
+      }
+    }
+    // --- End Filtering Logic ---
     
     const now = new Date();
     const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
-    const filename = profilesData.length === 1
-      ? `linkedin-insights-${profilesData[0].profile_name}-${timestamp}`
-      : `linkedin-insights-multiple-profiles-${timestamp}`;
+    const filename = filteredProfiles.length === 1
+      ? `linkedin-insights-${filteredProfiles[0].profile_name}-${timestamp}`
+      : `linkedin-insights-filtered-${timestamp}`; // More generic name when filtered
     
     try {
-      console.log(`Exporting ${profilesData.length} profiles as ${format}...`);
+      console.log(`Exporting ${filteredProfiles.length} profiles as ${format}...`);
       
       switch(format) {
         case 'csv':
-          SimpleExport.toCsv(profilesData, `${filename}.csv`);
+          SimpleExport.toCsv(filteredProfiles, `${filename}.csv`);
           break;
         case 'json':
-          SimpleExport.toJson(profilesData, `${filename}.json`);
+          SimpleExport.toJson(filteredProfiles, `${filename}.json`);
           break;
         case 'excel':
-          SimpleExport.toExcel(profilesData, `${filename}.xls`);
+          SimpleExport.toExcel(filteredProfiles, `${filename}.xls`);
           break;
       }
       
       console.log('Export successful');
-      showExportSuccess(format);
+      // Modify success message based on applied filters
+      const filterDescription = filterMessages.length > 0 ? ` (${filterMessages.join(', ')})` : '';
+      const successMessage = `Exported ${filteredProfiles.length} profiles${filterDescription} as ${format}`;
+      showExportSuccess(successMessage, format); 
     } catch (error) {
       console.error('Export error:', error);
       alert(`Export failed: ${error.message}`);
     }
   }
   
-  function showExportSuccess(format) {
+  function showExportSuccess(message, format) { // Accept full message
     const toast = document.createElement('div');
     toast.className = 'export-toast';
-    toast.innerHTML = `<span class="material-icons-round">check_circle</span> Exported as ${format}`;
+    toast.innerHTML = `<span class="material-icons-round">check_circle</span> ${message}`; 
     document.body.appendChild(toast);
     
     setTimeout(() => {
@@ -569,4 +621,14 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   loadSavedUrls();
+
+  document.querySelectorAll('.metric-card').forEach(card => {
+    card.addEventListener('mouseover', function() {
+      this.style.transform = 'translateY(-4px)';
+    });
+    
+    card.addEventListener('mouseout', function() {
+      this.style.transform = 'translateY(-2px)'; 
+    });
+  });
 });

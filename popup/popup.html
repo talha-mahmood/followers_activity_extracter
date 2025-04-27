@@ -56,6 +56,19 @@
         
         <div class="export-section">
           <h3>Export Data</h3>
+          <div class="filter-input-group">
+            <span class="material-icons-round filter-icon">filter_list</span>
+            <input type="text" id="min-followers-input" placeholder="Min Followers (e.g., 500, 1k, 2.5m)">
+            <select id="activity-filter-select">
+              <option value="">Any Activity</option>
+              <option value="1d">Within 1 Day</option>
+              <option value="3d">Within 3 Days</option>
+              <option value="1w">Within 1 Week</option>
+              <option value="2w">Within 2 Weeks</option>
+              <option value="1m">Within 1 Month</option>
+              <option value="3m">Within 3 Months</option>
+            </select>
+          </div>
           <div class="export-buttons">
             <button id="export-csv" class="export-btn">
               <span class="material-icons-round">description</span>
