@@ -746,6 +746,11 @@ h1 span {
   color: #d32f2f;
 }
 
+.extraction-complete {
+  background-color: rgba(12, 206, 107, 0.1);
+  color: var(--success);
+}
+
 .status-message .material-icons-round {
   font-size: 20px;
 }

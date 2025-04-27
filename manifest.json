@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "LinkedIn Insight Tracker",
   "version": "1.0.0",
-  "description": "Extract follower count and last activity date from LinkedIn profiles with natural browsing behavior",
-  "permissions": ["activeTab", "storage", "downloads"],
+  "description": "Extract profile data from LinkedIn profiles",
+  "permissions": ["activeTab", "storage", "tabs"],
   "host_permissions": ["*://*.linkedin.com/*"],
   "action": {
     "default_popup": "popup/popup.html",
@@ -13,24 +13,18 @@
       "128": "assets/icon128.png"
     }
   },
+  "background": {
+    "service_worker": "scripts/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.linkedin.com/*"],
+      "js": ["scripts/content.js"]
+    }
+  ],
   "icons": {
     "16": "assets/icon16.png",
     "48": "assets/icon48.png",
     "128": "assets/icon128.png"
-  },
-  "content_scripts": [
-    {
-      "matches": ["*://*.linkedin.com/in/*"],
-      "js": ["scripts/content.js"]
-    }
-  ],
-  "background": {
-    "service_worker": "scripts/background.js"
-  },
-  "web_accessible_resources": [
-    {
-      "resources": ["scripts/export-utils.js", "assets/*"],
-      "matches": ["<all_urls>"]
-    }
-  ]
+  }
 }

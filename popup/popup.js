@@ -109,15 +109,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     profilesData = [];
-    processingQueue = [...urls];
-    stopExtraction = false;
+    profilesContainer.innerHTML = '';
     
     extractBtn.classList.add('extracting');
     extractBtn.innerHTML = '<span class="btn-text">Extracting...</span>';
     
     stopBtn.classList.remove('hidden');
-    
-    profilesContainer.innerHTML = '';
     
     const progressContainer = document.createElement('div');
     progressContainer.className = 'progress-container';
@@ -136,130 +133,120 @@ document.addEventListener('DOMContentLoaded', function() {
     errorSection.classList.add('hidden');
     loadingSection.classList.add('hidden');
     
-    isProcessing = true;
-    processNextProfile();
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      const currentTabId = tabs[0].id;
+      
+      chrome.runtime.sendMessage({
+        action: "startExtraction",
+        urls: urls,
+        tabId: currentTabId
+      }, function(response) {
+        console.log("Extraction started in background:", response);
+        isProcessing = true;
+        
+        urls.forEach((url, index) => {
+          addProfileCard({
+            profile_url: url,
+            profile_name: getProfileNameFromUrl(url),
+            status: 'pending'
+          }, index);
+        });
+      });
+    });
   });
 
   stopBtn.addEventListener('click', function() {
-    stopExtraction = true;
-    processingQueue = [];
-    finishBatchProcessing();
+    chrome.runtime.sendMessage({ action: "stopExtraction" }, function(response) {
+      console.log("Extraction stopped:", response);
+      finishBatchProcessing();
+    });
   });
-  
-  function processNextProfile() {
-    if (stopExtraction) {
-      console.log("LinkedIn Insight Tracker: Extraction stopped by user");
-      finishBatchProcessing();
-      return;
-    }
-    
-    if (processingQueue.length === 0) {
-      finishBatchProcessing();
-      return;
-    }
-    
-    const url = processingQueue[0];
-    const profileIndex = profilesData.length;
-    const totalProfiles = profilesData.length + processingQueue.length;
-    
-    updateProgress(profileIndex, totalProfiles);
-    
-    addProfileCard({
-      profile_url: url,
-      profile_name: getProfileNameFromUrl(url),
-      status: 'pending'
-    }, profileIndex);
-    
-    showHumanActionMessage("Navigating to profile...");
-    
-    setTimeout(() => {
-      chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-        const currentTabId = tabs[0].id;
-        
-        chrome.tabs.update({url: url}, function(tab) {
-          if (stopExtraction) {
-            finishBatchProcessing();
-            return;
-          }
+
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === "extractionProgress") {
+      console.log("Received progress update:", message);
+      
+      updateProgress(message.completed, message.total);
+      
+      chrome.runtime.sendMessage({ action: "getProfilesData" }, function(response) {
+        if (response && response.profilesData) {
+          profilesData = response.profilesData;
           
-          chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo) {
-            if (tabId === tab.id && changeInfo.status === 'complete') {
-              chrome.tabs.onUpdated.removeListener(listener);
-              
-              if (stopExtraction) {
-                finishBatchProcessing();
-                return;
-              }
-              
-              showHumanActionMessage("Looking at profile content...");
-              
-              const humanReadDelay = 3000 + Math.floor(Math.random() * 4000);
-              
-              setTimeout(() => {
-                showHumanActionMessage("Gathering profile information...");
-                
-                chrome.tabs.sendMessage(tabId, {action: "extractData"}, function(response) {
-                  processingQueue.shift();
-                  
-                  if (chrome.runtime.lastError || !response || response.error) {
-                    profilesData.push({
-                      profile_url: url,
-                      profile_name: getProfileNameFromUrl(url),
-                      display_name: 'Not available',
-                      description: 'Not available',
-                      followers: 'Error',
-                      last_activity: 'Error',
-                      extracted_at: new Date().toISOString(),
-                      error: chrome.runtime.lastError?.message || response?.error || 'Failed to extract data'
-                    });
-                    
-                    updateProfileCard(profileIndex, {
-                      profile_url: url,
-                      profile_name: getProfileNameFromUrl(url),
-                      display_name: 'Not available',
-                      description: 'Not available',
-                      followers: 'Error',
-                      last_activity: 'Error',
-                      status: 'error'
-                    });
-                  } else {
-                    const profileData = {
-                      profile_url: url,
-                      profile_name: getProfileNameFromUrl(url),
-                      display_name: response.profileName || 'Not available',
-                      description: response.profileDescription || 'Not available',
-                      followers: response.followers || 'Not available',
-                      last_activity: response.lastActivity || 'Not available',
-                      extracted_at: new Date().toISOString()
-                    };
-                    
-                    profilesData.push(profileData);
-                    
-                    updateProfileCard(profileIndex, {
-                      ...profileData,
-                      status: 'success'
-                    });
-                  }
-                  
-                  showHumanActionMessage("Analyzing data...");
-                  
-                  const betweenProfilesDelay = 2000 + Math.floor(Math.random() * 3000);
-                  setTimeout(() => {
-                    if (!stopExtraction) {
-                      processNextProfile();
-                    } else {
-                      finishBatchProcessing();
-                    }
-                  }, betweenProfilesDelay);
-                });
-              }, humanReadDelay);
-            }
+          profilesData.forEach((data, index) => {
+            updateProfileCard(index, {
+              ...data,
+              status: 'success'
+            });
           });
-        });
+        }
       });
-    }, 1500);
-  }
-  
+    }
+    else if (message.action === "extractionComplete") {
+      console.log("Extraction complete notification received");
+      
+      if (message.profilesData) {
+        profilesData = message.profilesData;
+      }
+      
+      finishBatchProcessing();
+    }
+    return true;
+  });
+
+  chrome.runtime.sendMessage({ action: "getExtractionState" }, function(state) {
+    if (state && state.isRunning) {
+      console.log("Extraction already running, updating UI");
+      
+      extractBtn.classList.add('extracting');
+      extractBtn.innerHTML = '<span class="btn-text">Extracting...</span>';
+      stopBtn.classList.remove('hidden');
+      
+      chrome.runtime.sendMessage({ action: "getProfilesData" }, function(response) {
+        if (response && response.profilesData) {
+          profilesData = response.profilesData;
+          
+          profilesContainer.innerHTML = '';
+          
+          const progressContainer = document.createElement('div');
+          progressContainer.className = 'progress-container';
+          progressContainer.innerHTML = `
+            <div class="progress-label">
+              <span>Processing profiles...</span>
+              <span id="progress-text">${state.completedProfiles}/${state.totalProfiles}</span>
+            </div>
+            <div class="progress-bar">
+              <div id="progress-fill" class="progress-fill" style="width: ${(state.completedProfiles / state.totalProfiles) * 100}%"></div>
+            </div>
+          `;
+          profilesContainer.appendChild(progressContainer);
+          
+          resultsSection.classList.remove('hidden');
+          errorSection.classList.add('hidden');
+          loadingSection.classList.add('hidden');
+          
+          profilesData.forEach((data, index) => {
+            addProfileCard({
+              ...data,
+              status: 'success'
+            }, index);
+          });
+          
+          for (let i = profilesData.length; i < state.totalProfiles; i++) {
+            const url = i < state.processingQueue.length 
+              ? state.processingQueue[i - profilesData.length]
+              : 'Unknown Profile';
+              
+            addProfileCard({
+              profile_url: url,
+              profile_name: getProfileNameFromUrl(url),
+              status: 'pending'
+            }, i);
+          }
+        }
+      });
+    }
+  });
+
   function showHumanActionMessage(message) {
     const progressText = document.getElementById('progress-text');
     const container = document.querySelector('.progress-label');
@@ -318,19 +305,21 @@ document.addEventListener('DOMContentLoaded', function() {
       progressContainer.remove();
     }
     
-    if (stopExtraction) {
-      const statusMessage = document.createElement('div');
-      statusMessage.className = 'status-message extraction-stopped';
-      statusMessage.innerHTML = `<span class="material-icons-round">info</span> Extraction stopped. Processed ${profilesData.length} of ${profilesData.length + processingQueue.length} profiles.`;
-      profilesContainer.prepend(statusMessage);
-      
-      setTimeout(() => {
-        statusMessage.classList.add('fade-out');
-        setTimeout(() => statusMessage.remove(), 500);
-      }, 5000);
-    }
-    
     refreshHint.textContent = `Updated ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+    
+    const statusMessage = document.createElement('div');
+    statusMessage.className = 'status-message extraction-complete';
+    statusMessage.innerHTML = `<span class="material-icons-round">check_circle</span> Extraction complete. Processed ${profilesData.length} profiles.`;
+    profilesContainer.prepend(statusMessage);
+    
+    setTimeout(() => {
+      statusMessage.classList.add('fade-out');
+      setTimeout(() => {
+        if (statusMessage.parentNode) {
+          statusMessage.remove();
+        }
+      }, 500);
+    }, 5000);
   }
   
   function addProfileCard(profileData, index) {
