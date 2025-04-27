@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const activityFilterSelect = document.getElementById('activity-filter-select'); // Added
 
   const profilesContainer = document.getElementById('profiles-container');
-  let profilesData = [];
+  let profilesData = []; // Keep this for local reference, but it will be overwritten by background state
   let processingQueue = [];
   let isProcessing = false;
   let stopExtraction = false;
@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const urlsText = linkedinUrlInput.value.trim();
     
     if (!urlsText) {
-      showError('Please enter at least one LinkedIn profile URL');
+      alert('Please enter at least one LinkedIn profile URL');
       return;
     }
     
@@ -106,12 +106,11 @@ document.addEventListener('DOMContentLoaded', function() {
       .filter(url => url && url.includes('linkedin.com/in/'));
     
     if (urls.length === 0) {
-      showError('No valid LinkedIn profile URLs found');
+      alert('No valid LinkedIn profile URLs found');
       return;
     }
     
-    profilesData = [];
-    profilesContainer.innerHTML = '';
+    profilesContainer.innerHTML = ''; // Clear only the UI container
     
     extractBtn.classList.add('extracting');
     extractBtn.innerHTML = '<span class="btn-text">Extracting...</span>';
@@ -196,56 +195,81 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   chrome.runtime.sendMessage({ action: "getExtractionState" }, function(state) {
-    if (state && state.isRunning) {
-      console.log("Extraction already running, updating UI");
+    console.log("Initial state from background:", state); // Log the received state
+    
+    // Always try to load existing data first
+    if (state && state.profilesData && state.profilesData.length > 0) {
+      profilesData = state.profilesData; // Update local reference
       
+      profilesContainer.innerHTML = ''; // Clear any placeholders
+      resultsSection.classList.remove('hidden');
+      errorSection.classList.add('hidden');
+      loadingSection.classList.add('hidden');
+
+      // Display existing profile cards
+      profilesData.forEach((data, index) => {
+        // Determine status based on data content, default to success if data exists
+        const status = data.error ? 'error' : (data.followers && data.last_activity ? 'success' : 'pending'); 
+        addProfileCard({ ...data, status: status }, index);
+      });
+      
+      // Update refresh hint if data exists
+      refreshHint.textContent = `Updated ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+    }
+
+    // Then, handle the case where an extraction is actively running
+    if (state && state.isRunning) {
+      console.log("Extraction is currently running, updating UI");
+      
+      isProcessing = true; // Set local processing flag
       extractBtn.classList.add('extracting');
       extractBtn.innerHTML = '<span class="btn-text">Extracting...</span>';
       stopBtn.classList.remove('hidden');
       
-      chrome.runtime.sendMessage({ action: "getProfilesData" }, function(response) {
-        if (response && response.profilesData) {
-          profilesData = response.profilesData;
-          
-          profilesContainer.innerHTML = '';
-          
-          const progressContainer = document.createElement('div');
+      // Ensure results section is visible if running
+      resultsSection.classList.remove('hidden');
+      errorSection.classList.add('hidden');
+      loadingSection.classList.add('hidden');
+
+      // Add or update progress bar if it doesn't exist
+      let progressContainer = document.querySelector('.progress-container');
+      if (!progressContainer) {
+          progressContainer = document.createElement('div');
           progressContainer.className = 'progress-container';
-          progressContainer.innerHTML = `
-            <div class="progress-label">
-              <span>Processing profiles...</span>
-              <span id="progress-text">${state.completedProfiles}/${state.totalProfiles}</span>
-            </div>
-            <div class="progress-bar">
-              <div id="progress-fill" class="progress-fill" style="width: ${(state.completedProfiles / state.totalProfiles) * 100}%"></div>
-            </div>
-          `;
-          profilesContainer.appendChild(progressContainer);
-          
-          resultsSection.classList.remove('hidden');
-          errorSection.classList.add('hidden');
-          loadingSection.classList.add('hidden');
-          
-          profilesData.forEach((data, index) => {
-            addProfileCard({
-              ...data,
-              status: 'success'
-            }, index);
-          });
-          
-          for (let i = profilesData.length; i < state.totalProfiles; i++) {
-            const url = i < state.processingQueue.length 
-              ? state.processingQueue[i - profilesData.length]
-              : 'Unknown Profile';
-              
-            addProfileCard({
-              profile_url: url,
-              profile_name: getProfileNameFromUrl(url),
-              status: 'pending'
-            }, i);
+          profilesContainer.prepend(progressContainer); // Add to the top
+      }
+      progressContainer.innerHTML = `
+        <div class="progress-label">
+          <span>Processing profiles...</span>
+          <span id="progress-text">${state.completedProfiles}/${state.totalProfiles}</span>
+        </div>
+        <div class="progress-bar">
+          <div id="progress-fill" class="progress-fill" style="width: ${(state.completedProfiles / state.totalProfiles) * 100}%"></div>
+        </div>
+      `;
+
+      // Add pending cards for URLs still in the queue
+      const existingCardCount = profilesData.length;
+      state.processingQueue.forEach((url, queueIndex) => {
+          const overallIndex = existingCardCount + queueIndex;
+          // Check if card already exists before adding
+          if (!document.getElementById(`profile-card-${overallIndex}`)) {
+              addProfileCard({
+                  profile_url: url,
+                  profile_name: getProfileNameFromUrl(url),
+                  status: 'pending'
+              }, overallIndex);
           }
-        }
       });
+      
+      // Update progress display
+      updateProgress(state.completedProfiles, state.totalProfiles);
+
+    } else if (profilesData.length > 0) {
+        // If not running but data exists, ensure Extract button is normal
+        extractBtn.classList.remove('extracting');
+        extractBtn.innerHTML = '<span class="btn-text">Extract Data</span><span class="material-icons-round">arrow_forward</span>';
+        stopBtn.classList.add('hidden');
     }
   });
 
